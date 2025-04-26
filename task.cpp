@@ -1,140 +1,115 @@
 #include <iostream>
+#include <fstream>
 #include <vector>
-#include <string>
+#include <set>
+#include <unordered_set>
 #include <algorithm>
+#include <string>
+#include <functional>
 
 using namespace std;
 
-struct Student {
-    string Name;
-    string GroupId;
-    vector<unsigned> Ratings;
-    vector<string> Subjects;
-};
+class Book {
+private:
+    string author;
+    string title;
+    string publisher;
+    int year;
+    int pages;
 
-struct Group {
-    string Id;
-    vector<Student> Students;
-};
-
-// Сортировка студентов по имени
-void SortByName(vector<Student>& students) {
-    sort(students.begin(), students.end(), [](const Student& a, const Student& b) {
-        return a.Name < b.Name;
-    });
-}
-
-// Сортировка студентов по средней оценке
-void SortByRating(vector<Student>& students) {
-    sort(students.begin(), students.end(), [](const Student& a, const Student& b) {
-        double a_avg = accumulate(a.Ratings.begin(), a.Ratings.end(), 0.0) / a.Ratings.size();
-        double b_avg = accumulate(b.Ratings.begin(), b.Ratings.end(), 0.0) / b.Ratings.size();
-        return a_avg > b_avg;
-    });
-}
-
-// Количество студентов с хотя бы одной неудовлетворительной оценкой (2)
-size_t CountTwoness(const vector<Student>& students) {
-    size_t count = 0;
-    for (const auto& student : students) {
-        for (unsigned rating : student.Ratings) {
-            if (rating == 2) {
-                count++;
-                break;
-            }
-        }
-    }
-    return count;
-}
-
-// Количество студентов, сдавших все экзамены на 5
-size_t CountExcellent(const vector<Student>& students) {
-    size_t count = 0;
-    for (const auto& student : students) {
-        bool all_excellent = true;
-        for (unsigned rating : student.Ratings) {
-            if (rating != 5) {
-                all_excellent = false;
-                break;
-            }
-        }
-        if (all_excellent) count++;
-    }
-    return count;
-}
-
-// Студенты, имеющие 5 по предмету "Math"
-vector<Student> VectorMathExcellent(const vector<Student>& students) {
-    vector<Student> result;
-    for (const auto& student : students) {
-        for (size_t i = 0; i < student.Subjects.size(); i++) {
-            if (student.Subjects[i] == "Math" && student.Ratings[i] == 5) {
-                result.push_back(student);
-                break;
-            }
-        }
-    }
-    return result;
-}
-
-// Уникальные названия групп
-vector<string> GroupsId(const vector<Student>& students) {
-    vector<string> groups;
-    for (const auto& student : students) {
-        if (find(groups.begin(), groups.end(), student.GroupId) == groups.end()) {
-            groups.push_back(student.GroupId);
-        }
-    }
-    return groups;
-}
-
-// Список групп с их студентами
-vector<Group> Groups(const vector<Student>& students) {
-    vector<Group> result;
-    vector<string> groupIds = GroupsId(students);
+public:
+    // Конструкторы (как в ЛР4)
+    Book() : author(""), title(""), publisher(""), year(0), pages(0) {}
     
-    for (const auto& groupId : groupIds) {
-        Group group;
-        group.Id = groupId;
-        
-        for (const auto& student : students) {
-            if (student.GroupId == groupId) {
-                group.Students.push_back(student);
-            }
-        }
-        
-        result.push_back(group);
+    Book(const string& a, const string& t, const string& p, int y, int pg) 
+        : author(a), title(t), publisher(p), year(y), pages(pg) {}
+    
+    // Геттеры
+    string getAuthor() const { return author; }
+    string getTitle() const { return title; }
+    string getPublisher() const { return publisher; }
+    int getYear() const { return year; }
+    int getPages() const { return pages; }
+    
+    // Перегрузка оператора вывода (как в ЛР4)
+    friend ostream& operator<<(ostream& os, const Book& book) {
+        os << "Автор: " << book.author 
+           << ", Название: " << book.title 
+           << ", Издательство: " << book.publisher 
+           << ", Год: " << book.year 
+           << ", Страниц: " << book.pages;
+        return os;
     }
     
-    return result;
+    // Оператор сравнения для set (сортировка по ФИО автора)
+    bool operator<(const Book& other) const {
+        return author < other.author;
+    }
+    
+    // Оператор равенства для unordered_set
+    bool operator==(const Book& other) const {
+        return author == other.author && 
+               title == other.title && 
+               publisher == other.publisher && 
+               year == other.year && 
+               pages == other.pages;
+    }
+};
+
+// Хеш-функция для Book
+namespace std {
+    template<>
+    struct hash<Book> {
+        size_t operator()(const Book& book) const {
+            return hash<string>()(book.getAuthor()) ^
+                   hash<string>()(book.getTitle()) ^
+                   hash<string>()(book.getPublisher()) ^
+                   hash<int>()(book.getYear()) ^
+                   hash<int>()(book.getPages());
+        }
+    };
 }
 
 int main() {
-    // Пример использования
-    vector<Student> students = {
-        {"Ivan", "101", {5, 4, 5}, {"Math", "Physics", "Chemistry"}},
-        {"Anna", "102", {5, 5, 5}, {"Math", "Biology", "History"}},
-        {"Petr", "101", {3, 2, 4}, {"Physics", "Chemistry", "Math"}},
-        {"Maria", "102", {5, 4, 3}, {"Math", "Literature", "Art"}}
-    };
+    // Чтение данных из файла (как в ЛР4)
+    vector<Book> booksVector;
+    ifstream input("input.txt");
+    if (input.is_open()) {
+        string author, title, publisher;
+        int year, pages;
+        
+        while (getline(input, author) && 
+               getline(input, title) && 
+               getline(input, publisher) && 
+               input >> year >> pages) {
+            input.ignore(); // Пропустить символ новой строки
+            booksVector.emplace_back(author, title, publisher, year, pages);
+        }
+        input.close();
+    }
+
+    // Создание и заполнение set (упорядоченное множество)
+    set<Book> booksSet(booksVector.begin(), booksVector.end());
     
-    // Тестирование функций
-    SortByName(students);
-    SortByRating(students);
+    // Создание и заполнение unordered_set (неупорядоченное множество)
+    unordered_set<Book> booksUnorderedSet(booksVector.begin(), booksVector.end());
     
-    cout << "Students with at least one 2: " << CountTwoness(students) << endl;
-    cout << "Excellent students: " << CountExcellent(students) << endl;
+    // Вывод содержимого контейнеров
+    ofstream output("output_lr5.txt");
     
-    vector<Student> mathExcellent = VectorMathExcellent(students);
-    cout << "Students with 5 in Math: " << mathExcellent.size() << endl;
+    // Вывод set (отсортирован по автору)
+    output << "Содержимое set (отсортировано по автору):\n";
+    for (const auto& book : booksSet) {
+        output << book << "\n";
+    }
     
-    vector<string> groups = GroupsId(students);
-    cout << "Unique groups: ";
-    for (const auto& group : groups) cout << group << " ";
-    cout << endl;
+    // Вывод unordered_set
+    output << "\nСодержимое unordered_set (произвольный порядок):\n";
+    for (const auto& book : booksUnorderedSet) {
+        output << book << "\n";
+    }
     
-    vector<Group> groupedStudents = Groups(students);
-    cout << "Groups count: " << groupedStudents.size() << endl;
+    output.close();
     
     return 0;
 }
